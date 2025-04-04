@@ -1,7 +1,14 @@
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -31,40 +38,60 @@ private fun JetpackComposeBasicLineChart(
                 rememberLineCartesianLayer(),
                 startAxis = VerticalAxis.rememberStart(),
                 bottomAxis = HorizontalAxis.rememberBottom(
-                    valueFormatter = {
-                        context, x, _ ->
+                    valueFormatter = { context, x, _ ->
                         context.model.extraStore[labelKeys][x.toInt()]
                     }
                 ),
 
-            ),
+                ),
         modelProducer = modelProducer,
         modifier = modifier,
     )
 }
 
 @Composable
-fun LineChart(modifier: Modifier = Modifier, state: Map<String, Float>) {
+fun LineChart(
+    modifier: Modifier = Modifier,
+    mapState: Map<String, Float>,
+    labelState: ExtraStore.Key<List<String>>,
+    onUpdate: () -> Unit
+) {
     val modelProducer = remember { CartesianChartModelProducer() }
 
-    val labelListKey = ExtraStore.Key<List<String>>()
-    LaunchedEffect(state) {
+
+    LaunchedEffect(mapState) {
         modelProducer.runTransaction {
             // Learn more: https://patrykandpatrick.com/vmml6t.
-            lineSeries { series(state.values) }
-            extras { it[labelListKey] = state.keys.toList() }
-
+            lineSeries { series(mapState.values) }
+            extras { it[labelState] = mapState.keys.toList() }
 
 
         }
     }
-    JetpackComposeBasicLineChart(modelProducer, modifier, labelListKey)
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        JetpackComposeBasicLineChart(modelProducer, modifier, labelState)
+        TextButton(onClick = onUpdate) {
+            Text("Päivitä")
+        }
+    }
+
 }
 
 @Composable
 fun LineChartRoot(modifier: Modifier = Modifier) {
     val vm = viewModel<ChartViewModel>()
-    val state by vm.chartData.collectAsStateWithLifecycle()
+    val mapState by vm.chartData.collectAsStateWithLifecycle()
+    val labelState by vm.labelState.collectAsStateWithLifecycle()
 
-    LineChart(state=state)
+    LineChart(
+        mapState = mapState, onUpdate = {
+            vm.addValue()
+        },
+
+        labelState = labelState
+    )
 }
